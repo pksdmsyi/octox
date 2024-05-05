@@ -19,10 +19,13 @@ use crate::{array, println};
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
+use alloc::collections::VecDeque;
+use alloc::collections::BinaryHeap;
 use core::arch::asm;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::{cell::UnsafeCell, ops::Drop};
+use core::cmp::Reverse;
 
 pub static CPUS: Cpus = Cpus::new();
 
@@ -208,6 +211,45 @@ pub struct Trapframe {
     /* 280 */ pub t6: usize,
 }
 
+pub struct ProcessPriority{
+    pub priority: u8,
+    pub pid: usize,
+    pub ctime: u32,
+    pub n_run: u32,
+}
+
+impl PartialOrd for ProcessPriority {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ProcessPriority {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        if self.priority == other.priority {
+            if self.n_run == other.n_run {
+                self.ctime.cmp(&other.ctime)
+            } else {
+                self.n_run.cmp(&other.n_run)
+            }
+        } else {
+            self.priority.cmp(&other.priority)
+        }
+    }
+}
+
+impl Eq for ProcessPriority {}
+
+impl PartialEq for ProcessPriority {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority == other.priority
+            && self.n_run == other.n_run
+            && self.ctime == other.ctime
+            && self.pid == other.pid
+    }
+}
+
+
 #[derive(Debug)]
 pub struct Procs {
     pub pool: [Arc<Proc>; NPROC],
@@ -234,6 +276,10 @@ pub struct ProcInner {
     pub killed: bool,     // if true, have been killed
     pub xstate: i32,      // Exit status to be returned to parent's wait
     pub pid: PId,         // Process ID
+    pub priority: u8,     // Process Priority
+    pub niceness: u8,     // Process Niceness
+    pub ctime: u32,     // Process Creation Time
+    pub n_run: u32,       // Number of times process has run
 }
 
 // These are private to the process, so lock need not be held.
@@ -588,6 +634,10 @@ impl ProcInner {
             killed: false,
             xstate: 0,
             pid: PId(0),
+            ctime: 0,
+            n_run: 0,
+            niceness: 0,
+            priority: 0,
         }
     }
 }
@@ -650,7 +700,9 @@ pub fn dump() {
         }
     }
 }
+pub static mut PROC_QUEUE: BinaryHeap<Reverse<ProcessPriority>> = BinaryHeap::new();
 
+// pub static PROC_QUEUE: Mutex<VecDeque<Arc<Proc>>> = Mutex::new(VecDeque::new(), "ProcessQueue");
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns. It loops, doing:
@@ -661,6 +713,31 @@ pub fn dump() {
 pub fn scheduler() -> ! {
     let c = unsafe { CPUS.mycpu() };
 
+    loop{
+        // Avoid deadlock by ensuring thet devices can interrupt.
+        intr_on();
+                
+        unsafe {           
+            // Process is done running for now.
+            // It should have changed its p->state before coming back.
+            (*c).proc.take();
+        }
+
+        for (pid, p) in PROCS.pool.iter().enumerate() {
+            let mut inner = p.inner.lock();
+            if inner.state == ProcState::RUNNABLE {
+                unsafe {
+                    PROC_QUEUE.push(Reverse(ProcessPriority {
+                        priority: inner.priority,
+                        ctime: inner.ctime,
+                        n_run: inner.n_run,
+                        pid,
+                    }));
+                }
+            }
+        }    
+    }
+    
     loop {
         // Avoid deadlock by ensuring thet devices can interrupt.
         intr_on();
@@ -671,6 +748,7 @@ pub fn scheduler() -> ! {
                 // Switch to chosen process. It is the process's job
                 // to release its lock and then reacquire it
                 // before jumping back to us.
+                // dump();
                 inner.state = ProcState::RUNNING;
                 unsafe {
                     (*c).proc.replace(Arc::clone(p));

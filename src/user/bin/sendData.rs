@@ -20,7 +20,7 @@ fn main(){
         }
         let mut buf = [65u8; 512];
         stdout().write(&buf);
-        sys::sleep(10);
+        sys::sleep(1);
         idx += 1;
         };
     }

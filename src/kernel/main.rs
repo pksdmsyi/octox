@@ -6,7 +6,7 @@ extern crate alloc;
 use core::sync::atomic::{AtomicBool, Ordering};
 use kernel::{
     bio, console, kalloc, kmain, null, plic, println,
-    proc::{self, scheduler, user_init, Cpus},
+    proc::{self, scheduler, dump, user_init, Cpus},
     trap, virtio_disk, vm,
 };
 
@@ -43,6 +43,8 @@ extern "C" fn main() -> ! {
         trap::inithart(); // install kernel trap vector
         plic::inithart(); // ask PLIC for device interrupts
     }
+    dump();
+    println!("hart {} started", cpuid);
     scheduler()
 }
 

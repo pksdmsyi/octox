@@ -11,6 +11,7 @@
 #![feature(asm_const)]
 #![feature(fn_align)]
 #![feature(variant_count)]
+#![feature(const_binary_heap_constructor)]
 #![allow(clippy::missing_safety_doc)]
 
 #[cfg(all(target_os = "none", feature = "kernel"))]
