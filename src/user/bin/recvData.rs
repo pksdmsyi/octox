@@ -26,6 +26,6 @@ fn wc(mut fd: impl Read, mut gNum: i32) -> sys::Result<()> {
     }
     //println!("c={}",c);
     let endTime = sys::uptime().unwrap();
-    println!("Group {} : Time taken {}",gNum, endTime - startTime);
+    //println!("Group {} : Time taken {}",gNum, endTime - startTime);
     Ok(())
 }
