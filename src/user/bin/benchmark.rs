@@ -60,6 +60,7 @@ fn main() {
 
                     let timeDiff = sys::uptime().unwrap() - startUptime;
                     let sleepTime = (nInt*5) - timeDiff;
+                    println!("Group {} , {} , {} ", idx, command, sleepTime);
                     match Command::new(command)
                     .args(vec![&idx.to_string(),&sleepTime.to_string()])
                         .stdin(stdin)

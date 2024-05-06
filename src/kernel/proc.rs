@@ -281,7 +281,7 @@ pub enum SchedulerType{
     CFSLIKESCHEDULER,
 }
 
-static SCHEDULER_TYPE: SchedulerType = SchedulerType::CFSLIKESCHEDULER;
+static SCHEDULER_TYPE: SchedulerType = SchedulerType::RUNTIMEPRIORITY;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PId(usize);
@@ -941,9 +941,13 @@ pub fn exit(status: i32) -> ! {
         proc_guard.turnaround_time = proc_guard.end_time - proc_guard.create_time;
         proc_guard.sleep_time = proc_guard.turnaround_time - proc_guard.run_time;
         proc_guard.xstate = status;
+        // println!(
+        //     "pid: {:?} state: {:?} name: {:?}, chan: {}, create_time: {}, sleep_time: {}, run_time: {}, end_time: {}, turnaround_time: {}, response_time: {}, temp_time: {}, n_runs: {}, priority: {}, dynamic_priority: {}",
+        //     proc_guard.pid, proc_guard.state, data.name, proc_guard.chan, proc_guard.create_time, proc_guard.sleep_time, proc_guard.run_time, proc_guard.end_time, proc_guard.turnaround_time, proc_guard.response_time, proc_guard.temp_time, proc_guard.n_runs, proc_guard.priority, proc_guard.dynamic_priority
+        // );
         println!(
-            "pid: {:?} state: {:?} name: {:?}, chan: {}, create_time: {}, sleep_time: {}, run_time: {}, end_time: {}, turnaround_time: {}, response_time: {}, temp_time: {}, n_runs: {}, priority: {}, dynamic_priority: {}",
-            proc_guard.pid, proc_guard.state, data.name, proc_guard.chan, proc_guard.create_time, proc_guard.sleep_time, proc_guard.run_time, proc_guard.end_time, proc_guard.turnaround_time, proc_guard.response_time, proc_guard.temp_time, proc_guard.n_runs, proc_guard.priority, proc_guard.dynamic_priority
+            "{:?}, {}, {}, {}, {}, {}, {}",
+            proc_guard.pid,  data.name,  proc_guard.sleep_time, proc_guard.run_time,proc_guard.turnaround_time, proc_guard.priority, proc_guard.dynamic_priority
         );
         proc_guard.state = ProcState::ZOMBIE;
     }
